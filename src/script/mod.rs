@@ -45,6 +45,10 @@ impl Script {
                     true => format!("{} {} {}", code, bytes.len(), hex::encode(bytes)),
                     false => hex::encode(bytes),
                 },
+                ScriptBit::PushRef(code, bytes) => match extended {
+                    true => format!("{} {}", code.to_string(), hex::encode(bytes)),
+                    false => hex::encode(bytes),
+                },
                 ScriptBit::OpCode(code) => code.to_string(),
                 ScriptBit::If { code, pass, fail } => {
                     let mut string_parts = vec![];
@@ -95,6 +99,11 @@ impl Script {
                     pushbytes.extend(length_bytes);
                     pushbytes.extend(bytes);
                     pushbytes
+                }
+                ScriptBit::PushRef(code, bytes) => {
+                    let mut refbytes = vec![*code as u8];
+                    refbytes.extend(bytes);
+                    refbytes
                 }
                 ScriptBit::If { code, pass, fail } => {
                     let mut bytes = vec![*code as u8];
@@ -152,6 +161,14 @@ impl Script {
                     }
 
                     ScriptBit::PushData(v, data)
+                }
+                Some(v @ (OpCodes::OP_PUSHINPUTREF | OpCodes::OP_PUSHINPUTREFSINGLETON | OpCodes::OP_DISALLOWPUSHINPUTREF | OpCodes::OP_DISALLOWPUSHINPUTREFSIBLING)) => {
+                    let mut uref = vec![0; 36];
+                    if let Err(e) = cursor.read(&mut uref) {
+                        return Err(BSVErrors::DeserialiseScript(format!("Failed to read ref {}", e)));
+                    }
+
+                    ScriptBit::PushRef(v, uref)
                 }
                 Some(v) => ScriptBit::OpCode(v),
                 None => return Err(BSVErrors::DeserialiseScript(format!("Unknown opcode {}", byte))),
@@ -370,5 +387,21 @@ impl Script {
 
     pub fn to_script_bits(&self) -> Vec<ScriptBit> {
         self.0.clone()
+    }
+
+    pub fn get_pushrefs(&self) -> Vec<Vec<u8>> {
+        let urefs: Vec<Vec<u8>> = self.0
+            .iter()
+            .filter_map(|x| {
+                match x {
+                    ScriptBit::PushRef(o, uref) if *o == OpCodes::OP_PUSHINPUTREF || *o == OpCodes::OP_PUSHINPUTREFSINGLETON => {
+                        Some(uref.to_vec())
+                    }
+                    _ => None,
+                }
+            })
+            .collect();
+
+        urefs
     }
 }

@@ -89,6 +89,7 @@ pub struct HashCache {
     pub(super) hash_inputs: Option<Hash>,
     pub(super) hash_sequence: Option<Hash>,
     pub(super) hash_outputs: Option<Hash>,
+    pub(super) hash_output_hashes: Option<Hash>,
 }
 
 impl HashCache {
@@ -98,6 +99,7 @@ impl HashCache {
             hash_inputs: None,
             hash_sequence: None,
             hash_outputs: None,
+            hash_output_hashes: None,
         }
     }
 }
@@ -227,6 +229,7 @@ impl Transaction {
         let input = self.get_input(n_tx_in).ok_or_else(|| BSVErrors::OutOfBounds(format!("Could not get TxIn at index {}", n_tx_in)))?;
 
         let hashed_outputs = self.hash_outputs(sighash, n_tx_in)?;
+        let hash_output_hashes = self.hash_output_hashes(sighash, n_tx_in)?;
 
         buffer.write_u32::<LittleEndian>(self.version)?;
         buffer.write_all(&self.hash_inputs(sighash))?;
@@ -236,6 +239,7 @@ impl Transaction {
         buffer.write_all(&unsigned_script.to_bytes())?;
         buffer.write_u64::<LittleEndian>(value)?;
         buffer.write_u32::<LittleEndian>(input.get_sequence())?;
+        buffer.write_all(&hash_output_hashes)?;
         buffer.write_all(&hashed_outputs)?;
         buffer.write_u32::<LittleEndian>(self.n_locktime)?;
 
@@ -289,6 +293,35 @@ impl Transaction {
                 }
                 let hash = Hash::sha_256d(&txout_bytes);
                 self.hash_cache.hash_outputs = Some(hash.clone());
+                Ok(hash.to_bytes())
+            }
+            _ => Ok([0; 32].to_vec()),
+        }
+    }
+
+    fn hash_output_hashes(&mut self, sighash: SigHash, n_tx_in: usize) -> Result<Vec<u8>, BSVErrors> {
+        match sighash {
+            // Only sign the output at the same index as the given txin
+            SigHash::SINGLE | SigHash::InputOutput | SigHash::Legacy_InputOutput | SigHash::InputsOutput => {
+                if n_tx_in > self.get_noutputs() {
+                    return Err(BSVErrors::OutOfBounds("Cannot sign with SIGHASH_SINGLE given input index greater than number of outputs".into()));
+                }
+
+                let output = self.get_output(n_tx_in).ok_or_else(|| BSVErrors::OutOfBounds(format!("Could not find output at index {}", n_tx_in)))?;
+                let output_bytes = output.to_ref_bytes_impl()?;
+                Ok(Hash::sha_256d(&output_bytes).to_bytes())
+            }
+            // Sign all outputs
+            SigHash::ALL | SigHash::InputOutputs | SigHash::Legacy_InputOutputs | SigHash::InputsOutputs => {
+                if let Some(x) = &self.hash_cache.hash_output_hashes {
+                    return Ok(x.to_bytes());
+                }
+                let mut txout_bytes = Vec::new();
+                for output in &self.outputs {
+                    txout_bytes.write_all(&output.to_ref_bytes_impl()?)?;
+                }
+                let hash = Hash::sha_256d(&txout_bytes);
+                self.hash_cache.hash_output_hashes = Some(hash.clone());
                 Ok(hash.to_bytes())
             }
             _ => Ok([0; 32].to_vec()),

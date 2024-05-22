@@ -1,4 +1,4 @@
-use crate::{BSVErrors, Script, VarIntReader, VarIntWriter};
+use crate::{BSVErrors, Hash, Script, VarIntReader, VarIntWriter};
 use byteorder::*;
 use serde::*;
 use std::io::Read;
@@ -55,6 +55,33 @@ impl TxOut {
 
         // Script Pub Key
         buffer.write_all(&self.script_pub_key.to_bytes())?;
+
+        // Write out bytes
+        Ok(buffer)
+    }
+
+    pub(crate) fn to_ref_bytes_impl(&self) -> Result<Vec<u8>, BSVErrors> {
+        let mut buffer = Vec::new();
+
+        // Satoshi Value - 8 bytes
+        buffer.write_u64::<LittleEndian>(self.value)?;
+
+        // Script Pub Key hash
+        let hash = Hash::sha_256d(&self.script_pub_key.to_bytes());
+        buffer.write_all(&hash.to_bytes())?;
+
+        let mut found_refs = self.script_pub_key.get_pushrefs();
+        buffer.write_u32::<LittleEndian>(found_refs.len() as u32)?;
+
+        let urefs = if found_refs.is_empty() {
+            vec![0u8; 32]
+        } else {
+            found_refs.sort();
+            let ref_bytes: Vec<u8> = found_refs.iter().flat_map(|vec| vec.clone()).collect();
+            Hash::sha_256d(&ref_bytes).to_bytes()
+        };
+
+        buffer.write_all(&urefs)?;
 
         // Write out bytes
         Ok(buffer)
@@ -142,6 +169,10 @@ impl TxOut {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, BSVErrors> {
         TxOut::to_bytes_impl(self)
+    }
+
+    pub fn to_ref_bytes(&self) -> Result<Vec<u8>, BSVErrors> {
+        TxOut::to_ref_bytes_impl(self)
     }
 
     pub fn to_hex(&self) -> Result<String, BSVErrors> {
