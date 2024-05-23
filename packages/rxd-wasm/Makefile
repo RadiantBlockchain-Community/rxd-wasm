@@ -10,13 +10,13 @@ build-bundler:
 build-nodejs:
 	wasm-pack build --release --out-dir ./pkg/node --target nodejs
 	cargo build --target wasm32-unknown-unknown --release
-	wasm-bindgen ./target/wasm32-unknown-unknown/release/bsv_wasm.wasm --out-dir pkg/node --target nodejs --weak-refs
-	wasm-opt -O4 --dce ./pkg/node/bsv_wasm_bg.wasm -o ./pkg/node/bsv_wasm_bg.wasm
+	wasm-bindgen ./target/wasm32-unknown-unknown/release/rxd_wasm.wasm --out-dir pkg/node --target nodejs --weak-refs
+	wasm-opt -O4 --dce ./pkg/node/rxd_wasm_bg.wasm -o ./pkg/node/bsv_wasm_bg.wasm
 
 build-deno:
 	cargo build --target wasm32-unknown-unknown --release
-	wasm-bindgen ./target/wasm32-unknown-unknown/release/bsv_wasm.wasm --out-dir pkg/deno --target web --weak-refs
-	wasm-opt -O4 --dce ./pkg/deno/bsv_wasm_bg.wasm -o ./pkg/deno/bsv_wasm_bg.wasm
+	wasm-bindgen ./target/wasm32-unknown-unknown/release/rxd_wasm.wasm --out-dir pkg/deno --target web --weak-refs
+	wasm-opt -O4 --dce ./pkg/deno/rxd_wasm_bg.wasm -o ./pkg/deno/bsv_wasm_bg.wasm
 
 build-wasm:
 	make build-web ; make build-bundler ; make build-nodejs
@@ -31,8 +31,8 @@ publish-node:
 	# make sure not to call make build-* because wasm-pack doesnt allow you to specify subdirectories.
 	wasm-pack build --release --out-dir ./pkg --target nodejs
 	cargo build --target wasm32-unknown-unknown --release
-	wasm-bindgen ./target/wasm32-unknown-unknown/release/bsv_wasm.wasm --out-dir pkg/ --target nodejs --weak-refs
-	wasm-opt -O4 --dce ./pkg/bsv_wasm_bg.wasm -o ./pkg/bsv_wasm_bg.wasm
+	wasm-bindgen ./target/wasm32-unknown-unknown/release/rxd_wasm.wasm --out-dir pkg/ --target nodejs --weak-refs
+	wasm-opt -O4 --dce ./pkg/rxd_wasm_bg.wasm -o ./pkg/bsv_wasm_bg.wasm
 	wasm-pack publish ./pkg/
 
 publish-web:
@@ -46,4 +46,4 @@ publish-bundler:
 	wasm-pack publish ./pkg
 
 create-isomorphic:
-	rollup pkg/node/bsv_wasm.js --format umd --name bsv_wasm_iso --file pkg/node/bsv_wasm_iso.js
+	rollup pkg/node/rxd_wasm.js --format umd --name bsv_wasm_iso --file pkg/node/bsv_wasm_iso.js

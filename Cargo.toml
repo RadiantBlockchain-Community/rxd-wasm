@@ -1,13 +1,12 @@
 [package]
 name = "bsv"
 version = "2.0.2"
-authors = ["Firaenix <Nick.Carton@gmail.com>"]
 edition = "2021"
-description = "A Bitcoin stdlib"
-repository = "https://github.com/Firaenix/bsv-wasm"
+description = "A Radiant stdlib"
+repository = "https://github.com/rxdoss/rxd-wasm"
 license = "MIT"
 categories = ["api-bindings", "cryptography::cryptocurrencies", "network-programming", "wasm"]
-keywords = ["bitcoin", "bsv", "blockchain", "bitcoin-cash"]
+keywords = ["radiant", "rxd", "blockchain"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
